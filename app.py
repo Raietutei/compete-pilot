@@ -1,59 +1,90 @@
 import streamlit as st
 import google.generativeai as genai
 import os
+import plotly.graph_objects as go
+import re
 
+# 页面配置
+st.set_page_config(page_title="赛创智航 - 双创竞赛 Agent", layout="wide")
+
+# 密钥配置 (云端优先)
 api_key = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
-
-if not api_key:
-    st.error("未找到 API Key，请在 Secrets 中配置 GEMINI_API_KEY")
+if api_key:
+    genai.configure(api_key=api_key)
+else:
+    st.error("🔑 未配置 API Key")
     st.stop()
 
-genai.configure(api_key=api_key)
-
-# 2. 页面基础设置
-st.set_page_config(page_title="赛创智航 - 双创竞赛 Agent", page_icon="🚀", layout="wide")
 st.title("🚀 赛创智航 (Compete-Pilot)")
-st.subheader("高校双创竞赛点子孵化与评估专家")
+st.markdown("### 高校双创竞赛点子孵化与评估专家")
 
-# 3. 定义 AI 专家的“大脑逻辑” (System Prompt)
-system_instruction = """
-你现在是国家级“双创”大赛（如挑战杯、互联网+、智数未来）的首席评审专家，拥有10年评审经验。
-当用户输入一个项目点子时，请严格按照以下结构输出极具专业性的评估报告：
-1. 【赛道诊断】：判断该项目最适合哪个赛道（如 AIGC赛道、行业赋能等），是否符合大赛要求。
-2. 【核心维度打分】：分别对“创新性”、“技术可行性”、“商业落地价值”进行打分（满分10分），并给出简短理由。
-3. 【极客加分建议】：给出 2-3 个能极大提升“技术深度”或“现场演示效果”的具体建议。
-4. 【避坑防御指南】：指出该点子在答辩时最容易被评委攻击的漏洞，并提供防御话术。
-"""
+# 输入框
+user_input = st.text_area("💡 请详细描述你的参赛项目想法：", height=200, placeholder="例如：我打算做一个面向大一新生的计算机导论智能助教...")
 
-# 4. 初始化大模型
-model = genai.GenerativeModel(
-    model_name="gemini-1.5-pro",
-    system_instruction=system_instruction
-)
-
-# 5. 构建前端交互界面
-with st.form("idea_form"):
-    user_idea = st.text_area(
-        "💡 请详细描述你的参赛项目想法（越详细，评估越精准）：", 
-        height=150, 
-        placeholder="例如：我打算做一个面向大一新生的计算机导论智能助教，利用 RAG 技术结合教学大纲，并在前端实现算法的动态可视化..."
-    )
-    submitted = st.form_submit_button("🚀 一键生成评估报告")
-
-# 6. 处理提交与 AI 生成逻辑
-if submitted:
-    if user_idea.strip() == "":
-        st.warning("请先输入你的项目想法哦！")
-    else:
-        with st.spinner("专家评审团正在深度分析你的项目，请稍候..."):
+if st.button("🚀 一键生成评估报告"):
+    if user_input:
+        with st.spinner("AI 评委正在认真审核中..."):
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            
+            # 构造 Prompt，要求 AI 输出特定格式的评分
+            prompt = f"""
+            你是一位资深的高校双创竞赛评审专家（如互联网+、挑战杯）。
+            请对以下项目想法进行多维度评估，并给出改进建议。
+            
+            项目内容：{user_input}
+            
+            请在回答的最后，务必按照以下格式输出评分（0-10分）：
+            [SCORE]
+            创新性: 8
+            可行性: 7
+            商业价值: 6
+            社会意义: 9
+            团队要求: 7
+            [/SCORE]
+            """
+            
             try:
-                # 调用模型生成内容
-                response = model.generate_content(user_idea)
+                response = model.generate_content(prompt)
+                full_text = response.text
                 
-                # 展示结果
-                st.success("✅ 评估完成！请查看下方专属报告：")
-                st.markdown("---")
-                st.markdown(response.text)
+                # 尝试提取评分数据用于画图
+                score_match = re.search(r"\[SCORE\](.*?)\[/SCORE\]", full_text, re.S)
                 
+                # 分两栏显示
+                col1, col2 = st.columns([3, 2])
+                
+                with col1:
+                    st.markdown("### 📋 详细评估报告")
+                    # 移除文本中的评分标记再显示
+                    display_text = re.sub(r"\[SCORE\].*?\[/SCORE\]", "", full_text, flags=re.S)
+                    st.write(display_text)
+                
+                with col2:
+                    if score_match:
+                        st.markdown("### 📊 维度评估图")
+                        score_lines = score_match.group(1).strip().split('\n')
+                        categories = []
+                        values = []
+                        for line in score_lines:
+                            if ":" in line:
+                                cat, val = line.split(':')
+                                categories.append(cat.strip())
+                                values.append(float(val.strip()))
+                        
+                        # 画雷达图
+                        fig = go.Figure(data=go.Scatterpolar(
+                            r=values,
+                            theta=categories,
+                            fill='toself',
+                            line_color='#FF4B4B'
+                        ))
+                        fig.update_layout(
+                            polar=dict(radialaxis=dict(visible=True, range=[0, 10])),
+                            showlegend=False
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                        
             except Exception as e:
-                st.error(f"生成过程中出现错误: {e}")
+                st.error(f"生成失败：{e}")
+    else:
+        st.warning("请输入你的项目想法！")
