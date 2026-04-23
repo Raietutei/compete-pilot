@@ -24,7 +24,7 @@ user_input = st.text_area("💡 请详细描述你的参赛项目想法：", hei
 if st.button("🚀 一键生成评估报告"):
     if user_input:
         with st.spinner("AI 评委正在认真审核中..."):
-            model = genai.GenerativeModel('gemini-pro')
+            model = genai.GenerativeModel('gemini-1.5-flash-latest')
             
             # 构造 Prompt，要求 AI 输出特定格式的评分
             prompt = f"""
