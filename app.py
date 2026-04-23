@@ -1,26 +1,36 @@
 import streamlit as st
 from openai import OpenAI
 import os
+from dotenv import load_dotenv
 import plotly.graph_objects as go
 import re
 
-# --- 1. 页面配置 ---
+# 1. 尝试加载本地环境变量
+load_dotenv()
+
+# 2. 页面配置
 st.set_page_config(page_title="赛创智航 - 双创竞赛 Agent", layout="wide", page_icon="🚀")
 
-# --- 2. API 密钥配置 (DeepSeek 版) ---
-# 请在 Streamlit Secrets 中配置 DEEPSEEK_API_KEY
-api_key = st.secrets.get("DEEPSEEK_API_KEY") or os.getenv("DEEPSEEK_API_KEY")
+# 3. 获取 API Key (优先读取云端 Secrets，本地则读取 .env)
+def get_api_key():
+    # 尝试读取 Streamlit 云端 Secrets
+    if "DEEPSEEK_API_KEY" in st.secrets:
+        return st.secrets["DEEPSEEK_API_KEY"]
+    # 否则读取本地环境变量
+    return os.getenv("DEEPSEEK_API_KEY")
+
+api_key = get_api_key()
 
 if api_key:
-    # 初始化 DeepSeek 客户端 (接口完全兼容 OpenAI)
+    # 初始化 DeepSeek 客户端
     client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
 else:
-    st.error("🔑 未在 Secrets 中找到 DEEPSEEK_API_KEY。")
+    st.error("🔑 未找到 API Key。请检查本地 .env 或云端 Secrets 配置。")
     st.stop()
 
-# --- 3. UI 界面 ---
+# --- UI 界面 ---
 st.title("🚀 赛创智航 (Compete-Pilot)")
-st.markdown("### 高校双创竞赛点子孵化与评估专家 (国产大模型驱动版)")
+st.markdown("### 高校双创竞赛点子孵化与评估专家")
 
 user_input = st.text_area("💡 请详细描述你的参赛项目想法：", height=200, placeholder="例如：我打算做一个基于 RAG 技术的计算机辅助教学工具...")
 
@@ -28,7 +38,6 @@ if st.button("🚀 一键生成评估报告"):
     if user_input:
         with st.spinner("国内 AI 专家正在火速审核中..."):
             try:
-                # 构造 Prompt
                 prompt = f"""
                 你是一位资深的高校双创竞赛评审专家。请对以下项目进行多维度评估，并给出改进建议。
                 项目内容：{user_input}
@@ -49,15 +58,12 @@ if st.button("🚀 一键生成评估报告"):
                     messages=[
                         {"role": "system", "content": "你是一位专业的双创竞赛评审专家。"},
                         {"role": "user", "content": prompt},
-                    ],
-                    stream=False
+                    ]
                 )
                 
                 full_text = response.choices[0].message.content
                 
-                # 提取评分并画图 (逻辑与之前一致)
-                score_match = re.search(r"\[SCORE\](.*?)\[/SCORE\]", full_text, re.S)
-                
+                # 页面布局
                 col1, col2 = st.columns([3, 2])
                 with col1:
                     st.markdown("### 📋 详细评估报告")
@@ -65,6 +71,7 @@ if st.button("🚀 一键生成评估报告"):
                     st.markdown(display_text)
                 
                 with col2:
+                    score_match = re.search(r"\[SCORE\](.*?)\[/SCORE\]", full_text, re.S)
                     if score_match:
                         st.markdown("### 📊 维度评估图")
                         score_lines = score_match.group(1).strip().split('\n')
@@ -82,7 +89,7 @@ if st.button("🚀 一键生成评估报告"):
             except Exception as e:
                 st.error(f"❌ 运行出错：{e}")
     else:
-        st.warning("⚠️ 请先输入点子！")
+        st.warning("⚠️ 请先输入想法！")
 
 st.markdown("---")
-st.caption("© 2026 赛创智航 - Powered by DeepSeek-V3")
+st.caption("© 2026 赛创智航 - Powered by DeepSeek")
