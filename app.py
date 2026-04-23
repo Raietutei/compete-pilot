@@ -2,12 +2,10 @@ import streamlit as st
 import google.generativeai as genai
 import os
 
-
-# 1. 加载环境变量并配置 Gemini API
-api_key = os.getenv("GEMINI_API_KEY")
+api_key = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
 
 if not api_key:
-    st.error("未找到 API Key，请检查 .env 文件是否配置正确。")
+    st.error("未找到 API Key，请在 Secrets 中配置 GEMINI_API_KEY")
     st.stop()
 
 genai.configure(api_key=api_key)
