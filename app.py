@@ -11,6 +11,7 @@ st.set_page_config(page_title="赛创智航 - 双创竞赛 Agent", layout="wide"
 api_key = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
 if api_key:
     genai.configure(api_key=api_key)
+    os.environ["GOOGLE_API_USE_MTLS"] = "never"
 else:
     st.error("🔑 未配置 API Key")
     st.stop()
