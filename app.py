@@ -11,7 +11,7 @@ st.set_page_config(page_title="赛创智航 - 双创竞赛 Agent", layout="wide"
 api_key = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
 if api_key:
     genai.configure(api_key=api_key)
-    os.environ["GOOGLE_API_USE_MTLS"] = "never"
+
 else:
     st.error("🔑 未配置 API Key")
     st.stop()
@@ -25,7 +25,7 @@ user_input = st.text_area("💡 请详细描述你的参赛项目想法：", hei
 if st.button("🚀 一键生成评估报告"):
     if user_input:
         with st.spinner("AI 评委正在认真审核中..."):
-            model = genai.GenerativeModel(model_name='gemini-1.5-flash')
+            model = genai.GenerativeModel('gemini-1.5-flash')
             
             # 构造 Prompt，要求 AI 输出特定格式的评分
             prompt = f"""
